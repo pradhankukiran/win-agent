@@ -1,15 +1,15 @@
-# WinAgent
+# WinAgent.FileSystemWatcher
 
-A lightweight Windows endpoint agent for Data Loss Prevention (DLP) and Insider Risk Detection.
+A file system monitoring component built as part of a Data Loss Prevention (DLP) / Insider Risk Detection proof-of-concept.
 
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## Overview
 
-`WinAgent` is a proof-of-concept endpoint monitoring agent that watches file system activity on a Windows machine, assigns risk severity, persists events locally, and exposes a small HTTP API for dashboards and external integrations.
+This repository contains **only the file system watcher piece** of the larger DLP / Insider Risk Detection platform described in the original PoC scope. It runs as a .NET console application, monitors configured directories, assigns risk severity to file activity, persists events locally, and exposes a small HTTP API for inspection.
 
-> **Note:** This repository is currently a PoC. It runs the file system watcher as a console application. Future phases will add a Windows Service host, USB monitoring, browser URL tracking, screenshot detection, and a full backend integration.
+> **Scope note:** This repo does **not** include the Windows Service host, USB monitor, browser extension, screenshot detection, NestJS backend, or Electron dashboard. Those are separate components that would consume events from this watcher.
 
 ## Features
 
@@ -18,7 +18,7 @@ A lightweight Windows endpoint agent for Data Loss Prevention (DLP) and Insider 
 - **Deduplication** — collapses rapid `Changed` bursts on the same file within 500 ms.
 - **Copy detection** — compares SHA-256 hashes of new files against recently seen files to flag possible copies.
 - **Async processing** — hashing and severity rules run off the watcher callback thread.
-- **Severity scoring** — `Low` / `Medium` / `High` / `Critical` based on copy matches, burst rate, business hours, and USB activity stubs.
+- **Severity scoring** — `Low` / `Medium` / `High` / `Critical` based on copy matches, burst rate, and business hours.
 - **SQLite persistence** — every event is stored locally with a pending/retry mechanism.
 - **Replay loop** — pending events are retried every 10 seconds when backend push fails.
 - **HTTP status API** — health, status, recent events, and an SSE stream.
@@ -28,8 +28,8 @@ A lightweight Windows endpoint agent for Data Loss Prevention (DLP) and Insider 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                       WinAgent.Host                         │
-│  (console app today → Windows Service in production)        │
+│                 WinAgent.FileSystemWatcher                  │
+│                    (.NET console app)                       │
 └───────────────────────┬─────────────────────────────────────┘
                         │
     ┌───────────────────┼───────────────────┐
@@ -49,6 +49,8 @@ A lightweight Windows endpoint agent for Data Loss Prevention (DLP) and Insider 
                                  │  /events/... │
                                  └──────────────┘
 ```
+
+This watcher emits events that a separate backend (e.g., NestJS + PostgreSQL) or dashboard (e.g., Electron + React) would consume.
 
 ## Getting Started
 
@@ -158,7 +160,7 @@ JSON (`--json`):
 | Medium | Copy heuristic match (possible file copy). |
 | High | More than 10 events in 1 second for the same file path. |
 | High | File activity outside configured `BusinessHours`. |
-| Critical | USB activity detected + file activity (stub rule; USB detection not yet implemented). |
+| Critical | Reserved for future USB-connected + file activity rule. |
 
 ## Development & Testing
 
@@ -178,15 +180,13 @@ dotnet run -- --paths /tmp/dlpwatch --json --port 5001
 sqlite3 events.db "SELECT EventType, FullPath, Severity, Pending FROM FileSystemEvents;"
 ```
 
-## Roadmap
+## Scope
 
-- [ ] Windows Service wrapper
-- [ ] USB device connect/disconnect detection
-- [ ] Browser URL monitoring via extension
-- [ ] Screenshot detection
-- [ ] Real backend integration (NestJS)
-- [ ] Electron dashboard
-- [ ] Risk rule engine with configurable thresholds
+This repository is intentionally limited to the file system watcher. It is designed so that other PoC components can later consume its events via:
+
+- The HTTP `/events` endpoint
+- The SQLite `events.db` cache
+- The SSE `/events/stream` endpoint
 
 ## License
 
